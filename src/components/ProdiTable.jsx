@@ -25,6 +25,38 @@ function barColor(p) {
   return 'var(--red)'
 }
 
+function akredBadgeClass(nilai) {
+  if (!nilai) return 'badge-gray'
+  const v = nilai.toUpperCase().trim()
+  if (v === 'A' || v === 'UNGGUL' || v === 'TERAKREDITASI UNGGUL') return 'badge-green'
+  if (v === 'B' || v === 'BAIK SEKALI' || v === 'TERAKREDITASI BAIK SEKALI') return 'badge-blue'
+  if (v === 'C' || v === 'BAIK' || v === 'TERAKREDITASI BAIK' || v === 'BAIK ') return 'badge-amber'
+  return 'badge-gray'
+}
+
+function AkredStatus({ ak }) {
+  if (!ak) return <span style={{ color: 'var(--text-dim)', fontSize: '11px' }}>—</span>
+  const nc = akredBadgeClass(ak.nilai)
+  const label = ak.nilai || '—'
+  const status = ak.status || ''
+  // Shorten status text
+  const shortStatus = status.startsWith('Masih berlaku')
+    ? 'Aktif'
+    : status.startsWith('Sudah')
+    ? 'Kedaluarsa'
+    : status.includes('hari lagi')
+    ? status.replace(' hari lagi kadaluarsa', 'd')
+    : status.slice(0, 12)
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+      <span className={`badge ${nc}`} style={{ fontSize: '10px' }}>{label}</span>
+      <span style={{ color: 'var(--text-dim)', fontSize: '9px', fontFamily: "'DM Mono', monospace" }}>
+        {shortStatus}
+      </span>
+    </div>
+  )
+}
+
 function SortTh({ sortKey, currentSort, onSort, style, children }) {
   const base   = sortKey.replace(/_desc|_asc/, '')
   const active = currentSort.startsWith(base)
@@ -103,18 +135,19 @@ export default function ProdiTable({ data }) {
           <table>
             <thead>
               <tr>
-                <SortTh sortKey="nama"         style={{ width: '36%' }} {...sortProps}>Nama Prodi</SortTh>
-                <SortTh sortKey="tampung_desc" style={{ width: '8%'  }} {...sortProps}>Tampung</SortTh>
-                <SortTh sortKey="peminat_desc" style={{ width: '9%'  }} {...sortProps}>Peminat</SortTh>
-                <th style={{ width: '8%' }}>Jenjang</th>
-                <SortTh sortKey="p_desc"       style={{ width: '12%' }} {...sortProps}>Peluang</SortTh>
-                <th style={{ width: '27%' }}>Visualisasi</th>
+                <SortTh sortKey="nama"         style={{ width: '33%' }} {...sortProps}>Nama Prodi</SortTh>
+                <SortTh sortKey="tampung_desc" style={{ width: '7%'  }} {...sortProps}>Tampung</SortTh>
+                <SortTh sortKey="peminat_desc" style={{ width: '8%'  }} {...sortProps}>Peminat</SortTh>
+                <th style={{ width: '7%' }}>Jenjang</th>
+                <SortTh sortKey="p_desc"       style={{ width: '11%' }} {...sortProps}>Peluang</SortTh>
+                <th style={{ width: '14%' }}>Akreditasi</th>
+                <th style={{ width: '20%' }}>Visualisasi</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={7}>
                     <div className="empty-state">Tidak ada prodi yang cocok.</div>
                   </td>
                 </tr>
@@ -150,6 +183,9 @@ export default function ProdiTable({ data }) {
                       </td>
                       <td>
                         <span className={`badge ${badgeClass(r.peluang)}`}>{pLabel}</span>
+                      </td>
+                      <td>
+                        <AkredStatus ak={r.akreditasi} />
                       </td>
                       <td>
                         <div className="bar-wrap">

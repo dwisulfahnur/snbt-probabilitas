@@ -19,7 +19,7 @@ export default function App() {
     setLoading(true)
 
     try {
-      const res = await fetch(`/data/${uni.kode}.json`)
+      const res = await fetch(`/data/${uni.kode}_akreditasi.json`)
       if (!res.ok) {
         if (res.status === 404)
           throw new Error(`Data untuk PTN ini belum tersedia. Jalankan <code>python crawl_snbt.py</code> untuk mengunduh data.`)
