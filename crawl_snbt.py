@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
 """
-crawl_snbt.py — Crawl data prodi SNBT dari sidatagrun dan simpan ke data/{kode}.json
+crawl_snbt.py — Crawl data prodi SNBT dari sidatagrun dan simpan ke public/data/{kode}.json
 Jalankan: python crawl_snbt.py
-Output  : folder data/ berisi satu JSON per PTN
+Output  : folder public/data/ berisi satu JSON per PTN
+
+Kategori:
+  python crawl_snbt.py           — crawl semua (Akademik + Vokasi + PTKIN)
+  python crawl_snbt.py --akademik  — hanya PTN Akademik
+  python crawl_snbt.py --vokasi   — hanya PTN Vokasi (UIN/STAIN)
+  python crawl_snbt.py --ptkin    — hanya Politeknik Negeri (PTKIN)
+  python crawl_snbt.py -s         — skip yang sudah ada
 """
 
 import json
@@ -15,10 +22,13 @@ import requests
 from bs4 import BeautifulSoup
 
 BASE_URL = "https://sidatagrun-public-1076756628210.asia-southeast2.run.app/ptn_sb.php"
-DATA_DIR = "data"
+DATA_DIR = "public/data"
 DELAY    = 1.0  # detik antar request
 
-UNIS = [
+# -----------------------------------------------------------------------
+# PTN AKADEMIK (75 institutions, kode prefix 1xxx)
+# -----------------------------------------------------------------------
+UNIS_AKADEMIK = [
     {"kode": "1111", "nama": "UNIVERSITAS SYIAH KUALA"},
     {"kode": "1112", "nama": "UNIVERSITAS MALIKUSSALEH"},
     {"kode": "1113", "nama": "UNIVERSITAS TEUKU UMAR"},
@@ -40,7 +50,7 @@ UNIS = [
     {"kode": "1311", "nama": "UNIVERSITAS SULTAN AGENG TIRTAYASA"},
     {"kode": "1321", "nama": "UNIVERSITAS INDONESIA"},
     {"kode": "1323", "nama": "UNIVERSITAS NEGERI JAKARTA"},
-    {"kode": "1324", "nama": "UPN \"VETERAN\" JAKARTA"},
+    {"kode": "1324", "nama": 'UPN "VETERAN" JAKARTA'},
     {"kode": "1331", "nama": "UNIVERSITAS SINGAPERBANGSA KARAWANG"},
     {"kode": "1332", "nama": "INSTITUT TEKNOLOGI BANDUNG"},
     {"kode": "1333", "nama": "UNIVERSITAS PADJADJARAN"},
@@ -56,7 +66,7 @@ UNIS = [
     {"kode": "1356", "nama": "UNIVERSITAS NEGERI SEMARANG"},
     {"kode": "1361", "nama": "UNIVERSITAS GADJAH MADA"},
     {"kode": "1362", "nama": "UNIVERSITAS NEGERI YOGYAKARTA"},
-    {"kode": "1363", "nama": "UPN \"VETERAN\" YOGYAKARTA"},
+    {"kode": "1363", "nama": 'UPN "VETERAN" YOGYAKARTA'},
     {"kode": "1364", "nama": "ISI YOGYAKARTA"},
     {"kode": "1371", "nama": "UNIVERSITAS JEMBER"},
     {"kode": "1372", "nama": "UNIVERSITAS BRAWIJAYA"},
@@ -65,7 +75,7 @@ UNIS = [
     {"kode": "1382", "nama": "INSTITUT TEKNOLOGI SEPULUH NOPEMBER"},
     {"kode": "1383", "nama": "UNIVERSITAS NEGERI SURABAYA"},
     {"kode": "1384", "nama": "UNIVERSITAS TRUNOJOYO MADURA"},
-    {"kode": "1385", "nama": "UPN \"VETERAN\" JAWA TIMUR"},
+    {"kode": "1385", "nama": 'UPN "VETERAN" JAWA TIMUR'},
     {"kode": "1511", "nama": "UNIVERSITAS TANJUNGPURA"},
     {"kode": "1521", "nama": "UNIVERSITAS PALANGKARAYA"},
     {"kode": "1531", "nama": "UNIVERSITAS LAMBUNG MANGKURAT"},
@@ -95,6 +105,91 @@ UNIS = [
     {"kode": "1913", "nama": "ISBI TANAH PAPUA"},
     {"kode": "1921", "nama": "UNIVERSITAS PAPUA"},
 ]
+
+# -----------------------------------------------------------------------
+# PTN VOKASI — Universitas Islam Negeri (UIN) / STAIN
+# Termasuk juga diSNBT sebagai "vokasi", tapi kode nya prefix 1xxx
+# -----------------------------------------------------------------------
+UNIS_VOKASI = [
+    {"kode": "1116", "nama": "UIN AR-RANIRY"},
+    {"kode": "1123", "nama": "UIN SUMATERA UTARA"},
+    {"kode": "1124", "nama": "UIN SYEKH ALI HASAN AHMAD ADDARY PADANGSIDIMPUAN"},
+    {"kode": "1132", "nama": "UIN SULTAN SYARIF KASIM"},
+    {"kode": "1144", "nama": "UIN IMAM BONJOL PADANG"},
+    {"kode": "1152", "nama": "UIN SULTAN THAHA SAIFUDDIN JAMBI"},
+    {"kode": "1172", "nama": "UIN RADEN FATAH"},
+    {"kode": "1193", "nama": "UIN RADEN INTAN LAMPUNG"},
+    {"kode": "1194", "nama": "UIN MAHMUD YUNUS BATUSANGKAR"},
+    {"kode": "1195", "nama": "UIN SJECH M. DJAMIL DJAMBEK BUKITTINGGI"},
+    {"kode": "1312", "nama": "UIN SULTAN MAULANA HASANUDDIN BANTEN"},
+    {"kode": "1322", "nama": "UIN JAKARTA"},
+    {"kode": "1336", "nama": "UIN SUNAN GUNUNG DJATI"},
+    {"kode": "1357", "nama": "UIN WALISONGO"},
+    {"kode": "1358", "nama": "UIN RADEN MAS SAID SURAKARTA"},
+    {"kode": "1365", "nama": "UIN SUNAN KALIJAGA"},
+    {"kode": "1366", "nama": "UIN PROFESOR KIAI HAJI SAIFUDDIN ZUHRI PURWOKERTO"},
+    {"kode": "1367", "nama": "UIN SALATIGA"},
+    {"kode": "1368", "nama": "UIN K.H. ABDURRAHMAN WAHID PEKALONGAN"},
+    {"kode": "1374", "nama": "UIN MALANG"},
+    {"kode": "1386", "nama": "UIN SUNAN AMPEL SURABAYA"},
+    {"kode": "1532", "nama": "UIN ANTASARI BANJARMASIN"},
+    {"kode": "1571", "nama": "UIN SULTAN AJI MUHAMMAD IDRIS SAMARINDA"},
+    {"kode": "1622", "nama": "UIN MATARAM"},
+    {"kode": "1713", "nama": "UIN ALAUDDIN"},
+    {"kode": "1732", "nama": "UIN DATOKARAMA PALU"},
+]
+
+# -----------------------------------------------------------------------
+# PTKIN — Politeknik Negeri (44 institutions, kode prefix 2xxx)
+# -----------------------------------------------------------------------
+UNIS_PTKIN = [
+    {"kode": "2221", "nama": "POLITEKNIK NEGERI LHOKSEUMAWE"},
+    {"kode": "2222", "nama": "POLITEKNIK NEGERI MEDAN"},
+    {"kode": "2231", "nama": "POLITEKNIK NEGERI BATAM"},
+    {"kode": "2232", "nama": "POLITEKNIK NEGERI BENGKALIS"},
+    {"kode": "2241", "nama": "POLITEKNIK NEGERI PADANG"},
+    {"kode": "2242", "nama": "POLITEKNIK PERTANIAN NEGERI PAYAKUMBUH"},
+    {"kode": "2271", "nama": "POLITEKNIK NEGERI SRIWIJAYA"},
+    {"kode": "2281", "nama": "POLITEKNIK MANUFAKTUR NEGERI BANGKA BELITUNG"},
+    {"kode": "2291", "nama": "POLITEKNIK NEGERI LAMPUNG"},
+    {"kode": "2421", "nama": "POLITEKNIK NEGERI JAKARTA"},
+    {"kode": "2422", "nama": "POLITEKNIK NEGERI MEDIA KREATIF"},
+    {"kode": "2431", "nama": "POLITEKNIK NEGERI BANDUNG"},
+    {"kode": "2432", "nama": "POLITEKNIK MANUFAKTUR BANDUNG"},
+    {"kode": "2433", "nama": "POLITEKNIK NEGERI INDRAMAYU"},
+    {"kode": "2434", "nama": "POLITEKNIK NEGERI SUBANG"},
+    {"kode": "2452", "nama": "POLITEKNIK NEGERI SEMARANG"},
+    {"kode": "2453", "nama": "POLITEKNIK NEGERI CILACAP"},
+    {"kode": "2454", "nama": "POLITEKNIK MARITIM NEGERI INDONESIA"},
+    {"kode": "2471", "nama": "POLITEKNIK NEGERI BANYUWANGI"},
+    {"kode": "2472", "nama": "POLITEKNIK NEGERI JEMBER"},
+    {"kode": "2473", "nama": "POLITEKNIK NEGERI MADIUN"},
+    {"kode": "2474", "nama": "POLITEKNIK NEGERI MALANG"},
+    {"kode": "2481", "nama": "POLITEKNIK PERKAPALAN NEGERI SURABAYA"},
+    {"kode": "2482", "nama": "POLITEKNIK ELEKTRONIKA NEGERI SURABAYA (PENS)"},
+    {"kode": "2483", "nama": "POLITEKNIK NEGERI MADURA"},
+    {"kode": "2515", "nama": "POLITEKNIK NEGERI PONTIANAK"},
+    {"kode": "2516", "nama": "POLITEKNIK NEGERI KETAPANG"},
+    {"kode": "2517", "nama": "POLITEKNIK NEGERI SAMBAS"},
+    {"kode": "2536", "nama": "POLITEKNIK NEGERI BANJARMASIN"},
+    {"kode": "2537", "nama": "POLITEKNIK NEGERI TANAH LAUT"},
+    {"kode": "2552", "nama": "POLITEKNIK NEGERI NUNUKAN"},
+    {"kode": "2561", "nama": "POLITEKNIK PERTANIAN NEGERI SAMARINDA"},
+    {"kode": "2562", "nama": "POLITEKNIK NEGERI SAMARINDA"},
+    {"kode": "2563", "nama": "POLITEKNIK NEGERI BALIKPAPAN"},
+    {"kode": "2617", "nama": "POLITEKNIK NEGERI BALI"},
+    {"kode": "2641", "nama": "POLITEKNIK NEGERI KUPANG"},
+    {"kode": "2642", "nama": "POLITEKNIK PERTANIAN NEGERI KUPANG"},
+    {"kode": "2716", "nama": "POLITEKNIK NEGERI UJUNG PANDANG"},
+    {"kode": "2717", "nama": "POLITEKNIK PERTANIAN NEGERI PANGKAJENE KEPULAUAN"},
+    {"kode": "2727", "nama": "POLITEKNIK NEGERI MANADO"},
+    {"kode": "2728", "nama": "POLITEKNIK NEGERI NUSA UTARA"},
+    {"kode": "2831", "nama": "POLITEKNIK NEGERI AMBON"},
+    {"kode": "2832", "nama": "POLITEKNIK PERIKANAN NEGERI TUAL"},
+    {"kode": "2931", "nama": "POLITEKNIK NEGERI FAKFAK"},
+]
+
+UNIS = UNIS_AKADEMIK + UNIS_VOKASI + UNIS_PTKIN
 
 
 def parse_html(html: str) -> dict:
@@ -152,7 +247,7 @@ def parse_html(html: str) -> dict:
 
 
 def crawl_ptn(kode: str, session: requests.Session) -> dict | None:
-    # Parameter URL menggunakan 3 digit terakhir (drop digit pertama "1")
+    # Parameter URL menggunakan 3 digit terakhir (drop digit pertama)
     ptn_param = kode[1:]
     url = f"{BASE_URL}?ptn={ptn_param}"
     try:
@@ -170,17 +265,29 @@ def crawl_ptn(kode: str, session: requests.Session) -> dict | None:
 def main():
     os.makedirs(DATA_DIR, exist_ok=True)
 
-    # Opsi: hanya crawl PTN yang belum ada file-nya (skip jika sudah)
+    # Parse CLI args
     skip_existing = "--skip-existing" in sys.argv or "-s" in sys.argv
+    only_akademik = "--akademik" in sys.argv
+    only_vokasi  = "--vokasi" in sys.argv
+    only_ptkin   = "--ptkin" in sys.argv
 
     session = requests.Session()
     session.headers["User-Agent"] = "Mozilla/5.0 (compatible; snbt-crawler/1.0)"
 
-    total = len(UNIS)
+    if only_akademik:
+        unis_to_crawl = UNIS_AKADEMIK
+    elif only_vokasi:
+        unis_to_crawl = UNIS_VOKASI
+    elif only_ptkin:
+        unis_to_crawl = UNIS_PTKIN
+    else:
+        unis_to_crawl = UNIS
+
+    total = len(unis_to_crawl)
     ok = 0
     fail = 0
 
-    for i, uni in enumerate(UNIS, 1):
+    for i, uni in enumerate(unis_to_crawl, 1):
         kode = uni["kode"]
         nama = uni["nama"]
         out_path = os.path.join(DATA_DIR, f"{kode}.json")
@@ -206,6 +313,7 @@ def main():
             time.sleep(DELAY)
 
     print(f"\nSelesai: {ok} berhasil, {fail} gagal. Data tersimpan di '{DATA_DIR}/'")
+    print(f"Statistik — Akademik: {len(UNIS_AKADEMIK)}, Vokasi: {len(UNIS_VOKASI)}, PTKIN: {len(UNIS_PTKIN)}")
 
 
 if __name__ == "__main__":
